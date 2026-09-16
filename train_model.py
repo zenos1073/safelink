@@ -1,8 +1,3 @@
-"""Train a phishing URL classifier from the supplied labelled URL dataset.
-
-The model intentionally uses only URL-lexical features. It therefore makes no
-request to a submitted URL and can classify it before a user visits it.
-"""
 import argparse
 import json
 from pathlib import Path
