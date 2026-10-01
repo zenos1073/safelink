@@ -31,16 +31,42 @@ DISPLAY_NAMES = {
 # These are used only as an additional security rule.
 
 KNOWN_BRANDS = {
-    "netflix": ["netflix.com"],
-    "paypal": ["paypal.com"],
-    "google": ["google.com"],
-    "microsoft": ["microsoft.com"],
-    "amazon": ["amazon.com"],
-    "apple": ["apple.com"],
-    "facebook": ["facebook.com"],
-    "instagram": ["instagram.com"],
-    "linkedin": ["linkedin.com"],
-    "whatsapp": ["whatsapp.com"],
+    "amazon": [
+        "amazon.com",
+        "amazon.in",
+    ],
+    "google": [
+        "google.com",
+        "google.in",
+        "google.co.in",
+    ],
+    "microsoft": [
+        "microsoft.com",
+        "microsoft.in",
+        "microsoft.co.in",
+    ],
+    "netflix": [
+        "netflix.com",
+        "netflix.in",
+    ],
+    "paypal": [
+        "paypal.com",
+    ],
+    "apple": [
+        "apple.com",
+    ],
+    "facebook": [
+        "facebook.com",
+    ],
+    "instagram": [
+        "instagram.com",
+    ],
+    "linkedin": [
+        "linkedin.com",
+    ],
+    "whatsapp": [
+        "whatsapp.com",
+    ],
 }
 
 
@@ -229,6 +255,29 @@ def _reasons(features, url):
     return reasons
 
 
+def _has_strong_url_warning(features):
+    """
+    Return whether the URL contains an independent structural warning.
+
+    The training data is heavily biased toward particular TLDs and URL
+    schemes.  Those values must not be used as phishing evidence on their
+    own: ``.in`` is a valid public suffix and HTTPS is a positive security
+    signal.  This helper lists only signals that are meaningful without
+    relying on that dataset bias.
+    """
+
+    return any(
+        [
+            features["IsDomainIP"],
+            features["HasObfuscation"],
+            features["URLLength"] > 100,
+            features["NoOfSubDomain"] >= 3,
+            features["NoOfDegitsInURL"] >= 7,
+            features["NoOfEqualsInURL"] >= 3,
+        ]
+    )
+
+
 def score_url(value):
     """
     Analyse a URL and return its phishing-risk result.
@@ -324,6 +373,16 @@ def score_url(value):
             probability,
             0.80,
         )
+
+    # Do not let the model's learned TLD/scheme bias classify a clean URL.
+    # In particular, ``.in`` is not suspicious and ``https`` is not a
+    # phishing indicator.  Keep a genuinely suspicious URL eligible for a
+    # phishing result when it has independent structural evidence.
+    elif (
+        features["IsHTTPS"]
+        and not _has_strong_url_warning(features)
+    ):
+        probability = min(probability, 0.20)
 
     # Keep the displayed probability within a
     # sensible range.
